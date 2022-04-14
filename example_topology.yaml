@@ -1,0 +1,45 @@
+---
+sources:
+  cassandra_source:
+    Cassandra:
+      listen_addr: "127.0.0.1:9042"
+
+  redis_source:
+    Redis:
+      listen_addr: "127.0.0.1:6379"
+      connection_limit: 3000000
+
+chain_config:
+  cassandra_chain:
+    - RedisCache:
+        caching_schema:
+          test_cache_keyspace_batch_insert.test_table:
+            partition_key: [id]
+            range_key: [id]
+          test_cache_keyspace_simple.test_table:
+            partition_key: [id]
+            range_key: [id]
+        chain:
+          - RedisSinkSingle:
+              remote_address: "127.0.0.1:6379"
+    - CassandraSinkSingle:
+        remote_address: "127.0.0.1:9043"
+
+
+  redis_chain:
+    - Tee:
+        behavior: Ignore
+        buffer_size: 10000
+        chain:
+          - QueryTypeFilter:
+              filter: Read
+          - RedisSinkSingle:
+              remote_address: "127.0.0.1:6377"
+    - RedisSinkSingle:
+          remote_address: "127.0.0.1:6378"
+
+named_topics:
+  testtopic: 5
+source_to_chain_mapping:
+  cassandra_source: cassandra_chain
+  redis_source: redis_chain
